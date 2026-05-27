@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="row justify-content-center my-5">
+    <div class="col-md-6 col-lg-5">
+        <div class="main-card shadow-sm p-4 bg-white rounded-4">
+            <div class="text-center mb-4">
+                <div class="d-inline-flex align-items-center justify-content-center bg-light text-primary rounded-circle mb-3" style="width: 60px; height: 60px; font-size: 1.8rem;">
+                    <i class="bi bi-person-plus-fill"></i>
+                </div>
+                <h3 class="fw-bold text-secondary">Creează un cont</h3>
+                <p class="text-muted">Devino membru pentru a putea rezerva cărți online</p>
+            </div>
+
+            <form action="{{ url_for('register') }}" method="POST" id="registerForm" novalidate>
+                <div class="mb-3">
+                    <label for="name" class="form-label text-secondary fw-semibold">Nume complet</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0" style="border-radius: 8px 0 0 8px;"><i class="bi bi-person"></i></span>
+                        <input type="text" name="name" id="name" class="form-control form-control-custom border-start-0" style="border-radius: 0 8px 8px 0;" placeholder="Nume și prenume" required>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="email" class="form-label text-secondary fw-semibold">Adresă de e-mail</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0" style="border-radius: 8px 0 0 8px;"><i class="bi bi-envelope"></i></span>
+                        <input type="email" name="email" id="email" class="form-control form-control-custom border-start-0" style="border-radius: 0 8px 8px 0;" placeholder="Email" required>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="password" class="form-label text-secondary fw-semibold">Parolă</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0" style="border-radius: 8px 0 0 8px;"><i class="bi bi-key"></i></span>
+                        <input type="password" name="password" id="password" class="form-control form-control-custom border-start-0" style="border-radius: 0 8px 8px 0;" placeholder="Minim 6 caractere" minlength="6" required>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="confirm_password" class="form-label text-secondary fw-semibold">Confirmă parola</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0" style="border-radius: 8px 0 0 8px;"><i class="bi bi-key-fill"></i></span>
+                        <input type="password" name="confirm_password" id="confirm_password" class="form-control form-control-custom border-start-0" style="border-radius: 0 8px 8px 0;" placeholder="Repetă parola" required>
+                    </div>
+                    <div id="password-match-msg" class="form-text mt-1" style="display:none;"></div>
+                </div>
+
+                <button type="submit" class="btn btn-primary-custom w-100 py-2 fs-6 shadow-sm"><i class="bi bi-person-check-fill"></i> Înregistrare</button>
+            </form>
+
+            <hr class="my-4 text-muted">
+
+            <div class="text-center">
+                <span class="text-muted">Ai deja cont?</span>
+                <a href="{{ url_for('login') }}" class="fw-bold text-primary text-decoration-none ms-1">Conectează-te</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const passwordInput = document.getElementById('password');
+    const confirmInput = document.getElementById('confirm_password');
+    const matchMsg = document.getElementById('password-match-msg');
+
+    function checkPasswords() {
+        const pw = passwordInput.value;
+        const cpw = confirmInput.value;
+
+        if (cpw.length === 0) {
+            matchMsg.style.display = 'none';
+            confirmInput.classList.remove('is-valid', 'is-invalid');
+            return;
+        }
+
+        matchMsg.style.display = 'block';
+
+        if (pw === cpw) {
+            matchMsg.textContent = '\u2713 Parolele coincid.';
+            matchMsg.className = 'form-text mt-1 text-success fw-semibold';
+            confirmInput.classList.remove('is-invalid');
+            confirmInput.classList.add('is-valid');
+        } else {
+            matchMsg.textContent = '\u2717 Parolele nu coincid!';
+            matchMsg.className = 'form-text mt-1 text-danger fw-semibold';
+            confirmInput.classList.remove('is-valid');
+            confirmInput.classList.add('is-invalid');
+        }
+    }
+
+    confirmInput.addEventListener('input', checkPasswords);
+    passwordInput.addEventListener('input', checkPasswords);
+
+    document.getElementById('registerForm').addEventListener('submit', function(e) {
+        if (passwordInput.value !== confirmInput.value) {
+            e.preventDefault();
+            matchMsg.style.display = 'block';
+            matchMsg.textContent = '\u2717 Parolele nu coincid! Te rugam sa le verifici.';
+            matchMsg.className = 'form-text mt-1 text-danger fw-semibold';
+            confirmInput.classList.add('is-invalid');
+            confirmInput.focus();
+        }
+    });
+</script>
+
+{% endblock %}

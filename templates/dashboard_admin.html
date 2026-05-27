@@ -1,0 +1,251 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="row my-4 align-items-center">
+    <div class="col-md-8">
+        <h2 class="fw-bold text-secondary mb-1">Panou Administrare Sistem</h2>
+        <p class="text-muted">Gestionează conturile utilizatorilor, creează conturi de bibliotecar și supraveghează sistemul.</p>
+    </div>
+    <div class="col-md-4 text-md-end">
+        <button class="btn btn-primary-custom px-4 py-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#addLibrarianModal">
+            <i class="bi bi-person-plus-fill"></i> Adaugă Bibliotecar
+        </button>
+    </div>
+</div>
+
+<!-- Tab-uri navigare admin -->
+<ul class="nav nav-tabs mb-4" id="adminTab" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active fw-bold" id="librarians-tab" data-bs-toggle="tab" data-bs-target="#librarians-pane" type="button" role="tab">
+            <i class="bi bi-person-badge me-1"></i> Bibliotecari ({{ users | selectattr('role', 'equalto', 'bibliotecar') | list | length }})
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-bold" id="readers-tab" data-bs-toggle="tab" data-bs-target="#readers-pane" type="button" role="tab">
+            <i class="bi bi-people me-1"></i> Cititori ({{ users | selectattr('role', 'equalto', 'cititor') | list | length }})
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-bold" id="admins-tab" data-bs-toggle="tab" data-bs-target="#admins-pane" type="button" role="tab">
+            <i class="bi bi-shield-lock me-1"></i> Administratori
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="adminTabContent">
+
+    <!-- PANOUL 1: BIBLIOTECARI -->
+    <div class="tab-pane fade show active" id="librarians-pane" role="tabpanel">
+        <div class="main-card shadow-sm bg-white rounded-4 p-4">
+            {% set librarians = users | selectattr('role', 'equalto', 'bibliotecar') | list %}
+            {% if librarians %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Bibliotecar</th>
+                                <th>Email</th>
+                                <th>Cont creat la</th>
+                                <th class="text-end">Acțiuni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in librarians %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold text-secondary"><i class="bi bi-person-badge text-primary me-2"></i>{{ user['name'] }}</div>
+                                    </td>
+                                    <td class="text-muted">{{ user['email'] }}</td>
+                                    <td class="text-muted small">{{ user['created_at'] | format_date }}</td>
+                                    <td class="text-end">
+                                        <div class="d-flex gap-2 justify-content-end">
+                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#resetPassModal{{ user['id'] }}">
+                                                <i class="bi bi-key"></i> Resetează Parola
+                                            </button>
+                                            <form action="{{ url_for('admin_delete_user', user_id=user['id']) }}" method="POST"
+                                                  onsubmit="return confirm('Sigur dorești să ștergi contul bibliotecarului {{ user['name'] }}?');">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-trash"></i> Șterge
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-person-badge text-muted" style="font-size: 2.5rem;"></i>
+                    <p class="mt-2 mb-0">Nu există bibliotecari înregistrați. Creează primul cont de bibliotecar!</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- PANOUL 2: CITITORI -->
+    <div class="tab-pane fade" id="readers-pane" role="tabpanel">
+        <div class="main-card shadow-sm bg-white rounded-4 p-4">
+            {% set readers = users | selectattr('role', 'equalto', 'cititor') | list %}
+            {% if readers %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Cititor</th>
+                                <th>Email</th>
+                                <th>Înregistrat la</th>
+                                <th class="text-end">Acțiuni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in readers %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold text-secondary"><i class="bi bi-person text-muted me-2"></i>{{ user['name'] }}</div>
+                                    </td>
+                                    <td class="text-muted">{{ user['email'] }}</td>
+                                    <td class="text-muted small">{{ user['created_at'] | format_date }}</td>
+                                    <td class="text-end">
+                                        <div class="d-flex gap-2 justify-content-end">
+                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#resetPassModal{{ user['id'] }}">
+                                                <i class="bi bi-key"></i> Resetează Parola
+                                            </button>
+                                            <form action="{{ url_for('admin_delete_user', user_id=user['id']) }}" method="POST"
+                                                  onsubmit="return confirm('Sigur dorești să ștergi contul cititorului {{ user['name'] }}? Rezervările sale active vor fi sterse!');">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-trash"></i> Șterge
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-people text-muted" style="font-size: 2.5rem;"></i>
+                    <p class="mt-2 mb-0">Nu există cititori înregistrați în sistem.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- PANOUL 3: ADMINISTRATORI -->
+    <div class="tab-pane fade" id="admins-pane" role="tabpanel">
+        <div class="main-card shadow-sm bg-white rounded-4 p-4">
+            {% set admins = users | selectattr('role', 'equalto', 'admin') | list %}
+            {% if admins %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Administrator</th>
+                                <th>Email</th>
+                                <th>Cont creat la</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in admins %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold text-secondary">
+                                            <i class="bi bi-shield-lock-fill text-danger me-2"></i>{{ user['name'] }}
+                                            {% if user['id'] == current_user['id'] %}
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-1">Tu</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td class="text-muted">{{ user['email'] }}</td>
+                                    <td class="text-muted small">{{ user['created_at'] | format_date }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-secondary border-0 mt-3 small" role="alert">
+                    <i class="bi bi-info-circle me-1"></i> Conturile de administrator nu pot fi șterse sau modificate din interfată, pentru securitatea sistemului.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+
+<!-- MODAL ADAUGARE BIBLIOTECAR -->
+<div class="modal fade" id="addLibrarianModal" tabindex="-1" aria-labelledby="addLibrarianModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header bg-primary text-white border-0 rounded-top-4">
+                <h5 class="modal-title fw-bold" id="addLibrarianModalLabel">
+                    <i class="bi bi-person-plus-fill"></i> Creare Cont Bibliotecar
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('admin_create_librarian') }}" method="POST">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary fw-semibold">Nume Complet</label>
+                        <input type="text" name="name" class="form-control form-control-custom" placeholder="Nume complet" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary fw-semibold">Adresă Email</label>
+                        <input type="email" name="email" class="form-control form-control-custom" placeholder="Adresa de email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary fw-semibold">Parolă inițială</label>
+                        <input type="password" name="password" class="form-control form-control-custom" placeholder="Minim 6 caractere" required minlength="6">
+                        <div class="form-text text-muted">Bibliotecarului i se va comunica parola separat. Poate fi resetată ulterior.</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-3 bg-light rounded-bottom-4">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Anulează</button>
+                    <button type="submit" class="btn btn-primary-custom btn-sm px-4">
+                        <i class="bi bi-person-check-fill"></i> Creează Contul
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODALE RESETARE PAROLA (generate dinamic pentru fiecare user non-admin) -->
+{% for user in users %}
+    {% if user['role'] != 'admin' %}
+        <div class="modal fade" id="resetPassModal{{ user['id'] }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-sm">
+                <div class="modal-content border-0 rounded-4 shadow">
+                    <div class="modal-header bg-secondary text-white border-0 rounded-top-4">
+                        <h5 class="modal-title fw-bold fs-6">
+                            <i class="bi bi-key-fill"></i> Resetare Parolă
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form action="{{ url_for('admin_reset_password', user_id=user['id']) }}" method="POST">
+                        <div class="modal-body p-4">
+                            <p class="text-muted small mb-3">Resetezi parola pentru: <strong>{{ user['name'] }}</strong></p>
+                            <div class="mb-3">
+                                <label class="form-label text-secondary fw-semibold small">Parolă nouă</label>
+                                <input type="password" name="new_password" class="form-control form-control-custom form-control-sm"
+                                       placeholder="Minim 6 caractere" required minlength="6">
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0 p-3 bg-light rounded-bottom-4">
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Anulează</button>
+                            <button type="submit" class="btn btn-warning btn-sm text-dark px-3">
+                                <i class="bi bi-key"></i> Resetează
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endfor %}
+
+{% endblock %}

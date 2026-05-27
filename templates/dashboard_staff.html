@@ -1,0 +1,509 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="row my-4 align-items-center">
+    <div class="col-md-8">
+        <h2 class="fw-bold text-secondary mb-1">Panou de Administrare Bibliotecă</h2>
+        <p class="text-muted">Administrează catalogul de cărți și gestionează fluxul de rezervări și împrumuturi ale cititorilor.</p>
+    </div>
+    <div class="col-md-4 text-md-end">
+        <button class="btn btn-primary-custom px-4 py-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#addBookModal">
+            <i class="bi bi-plus-lg"></i> Adaugă Carte Nouă
+        </button>
+    </div>
+</div>
+
+<!-- Tab-uri de navigare panou admin -->
+<ul class="nav nav-tabs mb-4" id="adminTab" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active fw-bold" id="books-tab" data-bs-toggle="tab" data-bs-target="#books-pane" type="button" role="tab" aria-controls="books-pane" aria-selected="true">
+            <i class="bi bi-journal-text me-1"></i> Catalog Cărți ({{ books | length }})
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-bold" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending-pane" type="button" role="tab" aria-controls="pending-pane" aria-selected="false">
+            <i class="bi bi-hourglass-split me-1"></i> Cereri în Așteptare ({{ reservations | selectattr('status', 'equalto', 'pending') | list | length }})
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-bold" id="borrowed-tab" data-bs-toggle="tab" data-bs-target="#borrowed-pane" type="button" role="tab" aria-controls="borrowed-pane" aria-selected="false">
+            <i class="bi bi-journal-check me-1"></i> Împrumuturi Active ({{ reservations | selectattr('status', 'equalto', 'borrowed') | list | length }})
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-bold" id="history-tab" data-bs-toggle="tab" data-bs-target="#history-pane" type="button" role="tab" aria-controls="history-pane" aria-selected="false">
+            <i class="bi bi-clock-history me-1"></i> Istoric Tranzacții
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="adminTabContent">
+    <!-- PANOUL 1: CATALOG CARTI -->
+    <div class="tab-pane fade show active" id="books-pane" role="tabpanel" aria-labelledby="books-tab">
+        <div class="main-card shadow-sm bg-white rounded-4 p-4">
+            <!-- Casetă de căutare rapidă în panoul bibliotecarului -->
+            <div class="mb-3">
+                <div class="input-group">
+                    <span class="input-group-text bg-light text-muted border-end-0" style="border-radius: 8px 0 0 8px;"><i class="bi bi-search"></i></span>
+                    <input type="text" id="search-admin-books" class="form-control form-control-custom border-start-0" style="border-radius: 0 8px 8px 0;" placeholder="Caută o carte în catalog după titlu sau autor pentru a o modifica/șterge..." autocomplete="off">
+                </div>
+            </div>
+            {% if books %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Titlu & Autor</th>
+                                <th>Categorie</th>
+                                <th>Exemplare (Total)</th>
+                                <th>Disponibile</th>
+                                <th class="text-end">Acțiuni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for book in books %}
+                                <tr class="admin-book-row" data-title="{{ book['title'] | lower }}" data-author="{{ book['author'] | lower }}">
+                                    <td>
+                                        <div class="fw-bold text-secondary">{{ book['title'] }}</div>
+                                        <div class="text-muted small">de {{ book['author'] }}</div>
+                                    </td>
+                                    <td><span class="category-badge">{{ book['category'] }}</span></td>
+                                    <td><strong>{{ book['total_copies'] }}</strong></td>
+                                    <td>
+                                        {% if book['available_copies'] > 0 %}
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">
+                                                {{ book['available_copies'] }} disponibile
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 rounded-pill">
+                                                Stoc epuizat
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-flex gap-2 justify-content-end">
+                                            <button class="btn btn-sm btn-outline-warning text-dark" data-bs-toggle="modal" data-bs-target="#editBookModal{{ book['id'] }}">
+                                                <i class="bi bi-pencil"></i> Modifică
+                                            </button>
+                                            <form action="{{ url_for('admin_delete_book', book_id=book['id']) }}" method="POST" onsubmit="return confirm('Sigur dorești să ștergi cartea {{ book['title'] }}?');">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-trash"></i> Șterge
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+
+            {% else %}
+                <div class="text-center py-5 text-muted">
+                    <p class="mb-0">Nu există nicio carte în catalog.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- PANOUL 2: REZERVARI IN ASTEPTAREA RIDICARII (PENDING) -->
+    <div class="tab-pane fade" id="pending-pane" role="tabpanel" aria-labelledby="pending-tab">
+        <div class="main-card shadow-sm bg-white rounded-4 p-4">
+            {% set pending_reservations = reservations | selectattr('status', 'equalto', 'pending') | list %}
+            {% if pending_reservations %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Cititor (Nume & Email)</th>
+                                <th>Carte</th>
+                                <th>Rezervat la</th>
+                                <th>Data Expirării Ridicării (48h)</th>
+                                <th class="text-end">Confirmare Ridicare fizică</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for res in pending_reservations %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold text-secondary">{{ res['user_name'] }}</div>
+                                        <div class="text-muted small">{{ res['user_email'] }}</div>
+                                    </td>
+                                    <td><strong>{{ res['title'] }}</strong></td>
+                                    <td>{{ res['reserved_at'] | format_date }}</td>
+                                    <td>
+                                        <span class="text-danger fw-semibold"><i class="bi bi-clock-history"></i> {{ res['expires_at'] | format_date }}</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-flex gap-2 justify-content-end">
+                                            <button class="btn btn-sm btn-success px-3" data-bs-toggle="modal" data-bs-target="#pickupModal{{ res['id'] }}">
+                                                <i class="bi bi-check-lg"></i> Ridicată fizic
+                                            </button>
+                                            <form action="{{ url_for('cancel_reservation', res_id=res['id']) }}" method="POST" onsubmit="return confirm('Sigur dorești să anulezi/expiri această rezervare? Cartea va reveni în stoc.');">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-trash"></i> Expiră
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+
+            {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-clipboard-check text-muted" style="font-size: 2.5rem;"></i>
+                    <p class="mt-2 mb-0">Nu există nicio cerere de rezervare în așteptarea ridicării.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- PANOUL 3: IMPRUMUTURI ACTIVE (BORROWED) -->
+    <div class="tab-pane fade" id="borrowed-pane" role="tabpanel" aria-labelledby="borrowed-tab">
+        <div class="main-card shadow-sm bg-white rounded-4 p-4">
+            {% set borrowed_reservations = reservations | selectattr('status', 'equalto', 'borrowed') | list %}
+            {% if borrowed_reservations %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Cititor</th>
+                                <th>Carte</th>
+                                <th>Data Ridicării</th>
+                                <th>Termen Limită Returnare</th>
+                                <th class="text-end">Acțiuni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for res in borrowed_reservations %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold text-secondary">{{ res['user_name'] }}</div>
+                                        <div class="text-muted small">{{ res['user_email'] }}</div>
+                                    </td>
+                                    <td><strong>{{ res['title'] }}</strong></td>
+                                    <td>{{ res['borrowed_at'] | format_date }}</td>
+                                    <td>
+                                        <span class="text-primary fw-bold"><i class="bi bi-calendar-event"></i> {{ res['return_deadline'] | format_date }}</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <form action="{{ url_for('admin_return_book', res_id=res['id']) }}" method="POST" onsubmit="return confirm('Marchezi această carte ca fiind returnată la raft de către cititor?');">
+                                            <button type="submit" class="btn btn-sm btn-outline-success px-3">
+                                                <i class="bi bi-box-arrow-in-down"></i> Returnată la raft
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-info-circle text-muted" style="font-size: 2.5rem;"></i>
+                    <p class="mt-2 mb-0">Nu există niciun împrumut activ în desfășurare în sistem.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- PANOUL 4: ISTORIC TOTAL TRANZACTII -->
+    <div class="tab-pane fade" id="history-pane" role="tabpanel" aria-labelledby="history-tab">
+        <div class="main-card shadow-sm bg-white rounded-4 p-4">
+            {% set past_res = reservations | rejectattr('status', 'equalto', 'pending') | rejectattr('status', 'equalto', 'borrowed') | list %}
+            {% if past_res %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Cititor</th>
+                                <th>Carte</th>
+                                <th>Data Cererii</th>
+                                <th>Status Final</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for res in past_res %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold text-secondary">{{ res['user_name'] }}</div>
+                                        <div class="text-muted small">{{ res['user_email'] }}</div>
+                                    </td>
+                                    <td>{{ res['title'] }}</td>
+                                    <td>{{ res['reserved_at'] | format_date }}</td>
+                                    <td>
+                                        {% if res['status'] == 'returned' %}
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">Împrumut Returnat</span>
+                                        {% else %}
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 rounded-pill">Anulată / Expirată</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5 text-muted">
+                    <p class="mb-0">Nu există activitate înregistrată în istoricul bibliotecii.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- MODALE DINAMICE GENERATE DIN BUCLA -->
+
+<!-- MODALE MODIFICARE CARTE -->
+{% if books %}
+    {% for book in books %}
+        <div class="modal fade" id="editBookModal{{ book['id'] }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content border-0 rounded-4 shadow">
+                    <div class="modal-header bg-warning border-0 text-dark rounded-top-4">
+                        <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square"></i> Modifică Date Carte</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form action="{{ url_for('admin_edit_book', book_id=book['id']) }}" method="POST" enctype="multipart/form-data">
+                        <div class="modal-body p-4">
+                            <div class="mb-3">
+                                <label class="form-label text-secondary fw-semibold">Titlu</label>
+                                <input type="text" name="title" class="form-control form-control-custom" value="{{ book['title'] }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-secondary fw-semibold">Autor</label>
+                                <input type="text" name="author" class="form-control form-control-custom" value="{{ book['author'] }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-secondary fw-semibold">Categorie</label>
+                                <input type="text" name="category" class="form-control form-control-custom" value="{{ book['category'] }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-secondary fw-semibold">Număr Total Exemplare</label>
+                                <input type="number" name="total_copies" class="form-control form-control-custom" value="{{ book['total_copies'] }}" min="1" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-secondary fw-semibold">Copertă Carte (Imagine)</label>
+                                <!-- Drag and drop zone -->
+                                <div class="upload-zone drop-zone" data-target-input="file-input-edit-{{ book['id'] }}" data-preview="preview-image-edit-{{ book['id'] }}" data-preview-container="preview-container-edit-{{ book['id'] }}" data-file-name="file-name-edit-{{ book['id'] }}">
+                                    <i class="bi bi-cloud-arrow-up text-primary"></i>
+                                    <p class="mb-1 small fw-semibold text-secondary">Trage imaginea aici sau dă click pentru a o alege</p>
+                                    <span class="text-muted small" style="font-size: 0.8rem;">PNG, JPG, JPEG suportat</span>
+                                    <input type="file" name="cover_file" id="file-input-edit-{{ book['id'] }}" class="d-none" accept="image/*">
+                                    <div id="preview-container-edit-{{ book['id'] }}" class="{% if book['cover_url'] %}{% else %}d-none{% endif %} mt-2">
+                                        <img id="preview-image-edit-{{ book['id'] }}" class="upload-preview shadow-sm" src="{{ book['cover_url'] or '' }}" alt="Previzualizare">
+                                        <div class="small text-muted mt-1" id="file-name-edit-{{ book['id'] }}">{% if book['cover_url'] %}Copertă curentă{% endif %}</div>
+                                    </div>
+                                </div>
+                                <div class="mt-2 small text-muted text-center">sau inserează un URL:</div>
+                                <input type="text" name="cover_url" class="form-control form-control-custom form-control-sm mt-1" value="{{ book['cover_url'] or '' }}" placeholder="URL sau cale relativa imagine">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-secondary fw-semibold">Descriere</label>
+                                <textarea name="description" class="form-control form-control-custom" rows="3">{{ book['description'] }}</textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0 p-3 bg-light rounded-bottom-4">
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Anulează</button>
+                            <button type="submit" class="btn btn-warning btn-sm text-dark px-4"><i class="bi bi-check-lg"></i> Salvează Modificările</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- MODALE CONFIRMARE RIDICARE -->
+{% if pending_reservations %}
+    {% for res in pending_reservations %}
+        <div class="modal fade" id="pickupModal{{ res['id'] }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content border-0 rounded-4 shadow">
+                    <div class="modal-header bg-success text-white border-0 rounded-top-4">
+                        <h5 class="modal-title fw-bold"><i class="bi bi-journal-arrow-up"></i> Confirmare Împrumut Carte</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form action="{{ url_for('admin_pickup_book', res_id=res['id']) }}" method="POST">
+                        <div class="modal-body p-4 text-start">
+                            <p>Utilizatorul <strong>{{ res['user_name'] }}</strong> ridică cartea: <br>
+                               <strong>„{{ res['title'] }}”</strong>.</p>
+                            <div class="mb-3">
+                                <label for="days{{ res['id'] }}" class="form-label text-secondary fw-semibold">Durata împrumutului (zile)</label>
+                                <select name="days" id="days{{ res['id'] }}" class="form-select form-control-custom">
+                                    <option value="7">7 zile (O săptămână)</option>
+                                    <option value="14" selected>14 zile (Două săptămâni - Recomandat)</option>
+                                    <option value="30">30 de zile (O lună)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0 p-3 bg-light rounded-bottom-4">
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Anulează</button>
+                            <button type="submit" class="btn btn-success btn-sm px-4"><i class="bi bi-check-lg"></i> Confirmă Împrumutul</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- MODAL ADAUGARE CARTE NOUA -->
+<div class="modal fade" id="addBookModal" tabindex="-1" aria-labelledby="addBookModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header bg-primary text-white border-0 rounded-top-4">
+                <h5 class="modal-title fw-bold" id="addBookModalLabel"><i class="bi bi-plus-circle-fill"></i> Adaugă Carte Nouă</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('admin_add_book') }}" method="POST" enctype="multipart/form-data">
+                                                <div class="modal-body p-4">
+                                                    <div class="mb-3">
+                                                        <label class="form-label text-secondary fw-semibold">Titlu</label>
+                                                        <input type="text" name="title" class="form-control form-control-custom" placeholder="Titlu carte" required>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label text-secondary fw-semibold">Autor</label>
+                                                        <input type="text" name="author" class="form-control form-control-custom" placeholder="Autor" required>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label text-secondary fw-semibold">Categorie</label>
+                                                        <input type="text" name="category" class="form-control form-control-custom" placeholder="Categorie" required>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label text-secondary fw-semibold">Număr Exemplare</label>
+                                                        <input type="number" name="total_copies" class="form-control form-control-custom" value="1" min="1" required>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label text-secondary fw-semibold">Copertă Carte (Imagine)</label>
+                                                        <!-- Drag and drop zone -->
+                                                        <div class="upload-zone drop-zone" data-target-input="file-input-add" data-preview="preview-image-add" data-preview-container="preview-container-add" data-file-name="file-name-add">
+                                                            <i class="bi bi-cloud-arrow-up text-primary"></i>
+                                                            <p class="mb-1 small fw-semibold text-secondary">Trage imaginea aici sau dă click pentru a o alege</p>
+                                                            <span class="text-muted small" style="font-size: 0.8rem;">PNG, JPG, JPEG suportat</span>
+                                                            <input type="file" name="cover_file" id="file-input-add" class="d-none" accept="image/*">
+                                                            <div id="preview-container-add" class="d-none mt-2">
+                                                                <img id="preview-image-add" class="upload-preview shadow-sm" src="" alt="Previzualizare">
+                                                                <div class="small text-muted mt-1" id="file-name-add"></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="mt-2 small text-muted text-center">sau inserează un URL:</div>
+                                                        <input type="text" name="cover_url" class="form-control form-control-custom form-control-sm mt-1" placeholder="URL sau cale relativa imagine">
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label text-secondary fw-semibold">Descriere</label>
+                                                        <textarea name="description" class="form-control form-control-custom" rows="3" placeholder="Descriere carte"></textarea>
+                                                    </div>
+                                                </div>
+                <div class="modal-footer border-0 p-3 bg-light rounded-bottom-4">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Anulează</button>
+                    <button type="submit" class="btn btn-primary-custom btn-sm px-4"><i class="bi bi-save"></i> Adaugă Cartea</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Script-ul JS pentru manipularea zonei de Drag and Drop si Previzualizare imagine -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const dropZones = document.querySelectorAll(".drop-zone");
+
+    dropZones.forEach(zone => {
+        const inputId = zone.getAttribute("data-target-input");
+        const fileInput = document.getElementById(inputId);
+        const previewId = zone.getAttribute("data-preview");
+        const previewImg = document.getElementById(previewId);
+        const previewContainerId = zone.getAttribute("data-preview-container");
+        const previewContainer = document.getElementById(previewContainerId);
+        const fileNameId = zone.getAttribute("data-file-name");
+        const fileNameDiv = document.getElementById(fileNameId);
+
+        // Click pe zona de drag/drop declanșează input-ul de file
+        zone.addEventListener("click", function(e) {
+            if (e.target !== fileInput) {
+                fileInput.click();
+            }
+        });
+
+        // Prevenim comportamentele implicite ale browserului la drag-and-drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            zone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Adăugăm/eliminăm efectul de highlight la dragover
+        ['dragenter', 'dragover'].forEach(eventName => {
+            zone.addEventListener(eventName, () => zone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            zone.addEventListener(eventName, () => zone.classList.remove('dragover'), false);
+        });
+
+        // Capturăm fișierul la drop
+        zone.addEventListener('drop', function(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                fileInput.files = files; // Atribuim fișierele inputului ascuns
+                handleFiles(files[0]);
+            }
+        }, false);
+
+        // Capturăm fișierul selectat prin dialog
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                handleFiles(this.files[0]);
+            }
+        });
+
+        function handleFiles(file) {
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onloadend = function() {
+                    previewImg.src = reader.result;
+                    previewContainer.classList.remove('d-none');
+                    fileNameDiv.textContent = file.name;
+                }
+            } else {
+                alert("Te rugăm să încarci doar imagini!");
+            }
+        }
+    });
+
+    // Filtrare cărți în timp real în tabelul de administrare al bibliotecarului
+    const searchAdminInput = document.getElementById("search-admin-books");
+    if (searchAdminInput) {
+        const adminBookRows = document.querySelectorAll(".admin-book-row");
+        
+        searchAdminInput.addEventListener("input", function() {
+            const query = this.value.toLowerCase().trim();
+            
+            adminBookRows.forEach(row => {
+                const title = row.getAttribute("data-title");
+                const author = row.getAttribute("data-author");
+                
+                if (title.includes(query) || author.includes(query)) {
+                    row.style.display = ""; // Afișăm rândul
+                } else {
+                    row.style.display = "none"; // Ascundem rândul
+                }
+            });
+        });
+    }
+});
+</script>
+
+{% endblock %}

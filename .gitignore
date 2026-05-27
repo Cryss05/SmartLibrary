@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+dist/
+build/
+*.egg-info/
+
+# Bază de date locală SQLite
+library.db
+*.sqlite
+*.db-journal
+*.db-wal
+
+# Încărcări locale (coperți)
+static/uploads/
+
+# IDE / Editoare
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini

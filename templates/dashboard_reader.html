@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="row my-4">
+    <div class="col-12">
+        <h2 class="fw-bold text-secondary mb-1">Panoul Meu de Rezervări</h2>
+        <p class="text-muted">Urmărește rezervările în curs de ridicare, împrumuturile active și istoricul lecturilor tale.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <!-- 1. REZERVARI IN ASTEPTARE (PENDING PICKUP) -->
+        <div class="main-card shadow-sm bg-white rounded-4 p-4 mb-4">
+            <h5 class="fw-bold text-secondary mb-3"><i class="bi bi-hourglass-split text-warning"></i> Cărți Rezervate (Așteaptă Ridicarea - 48h)</h5>
+            
+            {% set pending_res = reservations | selectattr('status', 'equalto', 'pending') | list %}
+            {% if pending_res %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Carte</th>
+                                <th>Rezervat la</th>
+                                <th>Ridicarea până la</th>
+                                <th class="text-end">Acțiuni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for res in pending_res %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold text-secondary">{{ res['title'] }}</div>
+                                        <div class="text-muted small">de {{ res['author'] }}</div>
+                                    </td>
+                                    <td>{{ res['reserved_at'] | format_date }}</td>
+                                    <td>
+                                        <span class="text-danger fw-semibold"><i class="bi bi-clock-history"></i> {{ res['expires_at'] | format_date }}</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-flex gap-2 justify-content-end">
+                                            <a href="{{ url_for('book_details', book_id=res['book_id']) }}" class="btn btn-sm btn-outline-secondary">
+                                                <i class="bi bi-info-circle"></i> Detalii
+                                            </a>
+                                            <form action="{{ url_for('cancel_reservation', res_id=res['id']) }}" method="POST" onsubmit="return confirm('Sigur dorești să anulezi această rezervare?');">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-x-circle"></i> Anulează
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-4 bg-light rounded-3 text-muted">
+                    <i class="bi bi-bookmark text-muted mb-2" style="font-size: 1.8rem;"></i>
+                    <p class="mb-0">Nu ai nicio carte în așteptarea ridicării.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- 2. IMPRUMUTURI ACTIVE (BORROWED) -->
+        <div class="main-card shadow-sm bg-white rounded-4 p-4 mb-4">
+            <h5 class="fw-bold text-secondary mb-3"><i class="bi bi-journal-check text-primary"></i> Împrumuturi Active (Cărți la tine)</h5>
+            
+            {% set borrowed_res = reservations | selectattr('status', 'equalto', 'borrowed') | list %}
+            {% if borrowed_res %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Carte</th>
+                                <th>Ridicat la</th>
+                                <th>Trebuie Returnată până la</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for res in borrowed_res %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold text-secondary">{{ res['title'] }}</div>
+                                        <div class="text-muted small">de {{ res['author'] }}</div>
+                                    </td>
+                                    <td>{{ res['borrowed_at'] | format_date }}</td>
+                                    <td>
+                                        <span class="text-primary fw-bold"><i class="bi bi-calendar-event"></i> {{ res['return_deadline'] | format_date }}</span>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-4 bg-light rounded-3 text-muted">
+                    <i class="bi bi-journal text-muted mb-2" style="font-size: 1.8rem;"></i>
+                    <p class="mb-0">Nu ai niciun împrumut activ în desfășurare.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- 3. ISTORIC REZERVARI SI IMPRUMUTURI -->
+        <div class="main-card shadow-sm bg-white rounded-4 p-4">
+            <h5 class="fw-bold text-secondary mb-3"><i class="bi bi-clock-history text-muted"></i> Istoric Activitate (Finalizate & Anulate)</h5>
+            
+            {% set past_res = reservations | rejectattr('status', 'equalto', 'pending') | rejectattr('status', 'equalto', 'borrowed') | list %}
+            {% if past_res %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Carte</th>
+                                <th>Data Rezervării</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for res in past_res %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold text-secondary">{{ res['title'] }}</div>
+                                        <div class="text-muted small">de {{ res['author'] }}</div>
+                                    </td>
+                                    <td>{{ res['reserved_at'] | format_date }}</td>
+                                    <td>
+                                        {% if res['status'] == 'returned' %}
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">Returnată cu succes</span>
+                                        {% else %}
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 rounded-pill">Anulată / Expirată</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-4 bg-light rounded-3 text-muted">
+                    <p class="mb-0">Nu există înregistrări în istoricul tău.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Informatii profil cititor -->
+    <div class="col-lg-4">
+        <div class="main-card shadow-sm bg-white rounded-4 p-4">
+            <h5 class="fw-bold text-secondary mb-3"><i class="bi bi-info-circle text-primary"></i> Detalii Cont</h5>
+            <div class="mb-3">
+                <span class="text-muted small">Nume:</span>
+                <div class="fw-bold text-secondary fs-5">{{ current_user['name'] }}</div>
+            </div>
+            <div class="mb-3">
+                <span class="text-muted small">E-mail:</span>
+                <div class="text-secondary">{{ current_user['email'] }}</div>
+            </div>
+            <div class="mb-3">
+                <span class="text-muted small">Membru din:</span>
+                <div class="text-secondary">{{ current_user['created_at'].split(' ')[0] if current_user['created_at'] else 'Recent' }}</div>
+            </div>
+            <hr class="text-muted">
+            <div class="small text-muted">
+                <p class="mb-2"><i class="bi bi-clock text-warning"></i> <strong>Rezervarea online:</strong> Menține cartea blocată pentru tine timp de 48 de ore.</p>
+                <p class="mb-0"><i class="bi bi-shield-check text-success"></i> <strong>Ridicarea cărții:</strong> Odată ridicată fizic, bibliotecarul va seta termenul de returnare corespunzător.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
